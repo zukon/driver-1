@@ -27,6 +27,7 @@
 #include <linux/poll.h>
 #include <linux/workqueue.h>
 #include <linux/stm/pio.h>
+#include <linux/device.h> /* class_creatre */
 
 #include "proton.h"
 #include "utf.h"
@@ -1434,6 +1435,9 @@ void button_dev_exit(void)
 	input_unregister_device(button_dev);
 }
 
+#define DEVICE_NAME "vfd"
+static struct class *vfd_class = 0;
+
 static int __init proton_init_module(void)
 {
 	int i;
@@ -1448,9 +1452,18 @@ static int __init proton_init_module(void)
 	if(button_dev_init() != 0)
 		return -1;
 
-	if (register_chrdev(VFD_MAJOR,"VFD",&vfd_fops))
+	if (register_chrdev(VFD_MAJOR,DEVICE_NAME,&vfd_fops))
 		printk("unable to get major %d for VFD\n",VFD_MAJOR);
 
+	vfd_class = class_create(THIS_MODULE, DEVICE_NAME);
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,30)
+	device_create(vfd_class, NULL, MKDEV(VFD_MAJOR, 0), NULL, "vfd");
+	device_create(vfd_class, NULL, MKDEV(VFD_MAJOR, 1), NULL, "rc");
+#else
+	class_device_create(vfd_class, NULL, MKDEV(VFD_MAJOR, 0), NULL, "vfd", 0);
+	class_device_create(vfd_class, NULL, MKDEV(VFD_MAJOR, 1), NULL, "rc", 1);
+#endif
+	class_destroy(vfd_class);
 	sema_init(&write_sem, 1);
 	sema_init(&key_mutex, 1);
 
@@ -1482,7 +1495,16 @@ static void __exit proton_cleanup_module(void)
 	if(!thread_stop && time_thread)
 		kthread_stop(time_thread);
 
-	unregister_chrdev(VFD_MAJOR,"VFD");
+	unregister_chrdev(VFD_MAJOR,DEVICE_NAME);
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,30)
+	device_destroy(vfd_class, MKDEV(VFD_MAJOR, 0));
+	device_destroy(vfd_class, MKDEV(VFD_MAJOR, 1));
+#else
+	class_device_destroy(vfd_class, MKDEV(VFD_MAJOR, 0));
+	class_device_destroy(vfd_class, MKDEV(VFD_MAJOR, 1));
+#endif
+	class_destroy(vfd_class);
+
 	printk("HL101 FrontPanel module unloading\n");
 }
 
