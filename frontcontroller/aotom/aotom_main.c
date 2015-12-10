@@ -45,6 +45,7 @@
 #include <linux/time.h>
 #include <linux/poll.h>
 #include <linux/workqueue.h>
+#include <linux/device.h> /* class_creatre */
 /* for RTC / reboot_notifier hooks */
 #include <linux/notifier.h>
 #include <linux/reboot.h>
