@@ -1458,10 +1458,8 @@ static int __init proton_init_module(void)
 	vfd_class = class_create(THIS_MODULE, DEVICE_NAME);
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,30)
 	device_create(vfd_class, NULL, MKDEV(VFD_MAJOR, 0), NULL, "vfd");
-	device_create(vfd_class, NULL, MKDEV(VFD_MAJOR, 1), NULL, "rc");
 #else
 	class_device_create(vfd_class, NULL, MKDEV(VFD_MAJOR, 0), NULL, "vfd", 0);
-	class_device_create(vfd_class, NULL, MKDEV(VFD_MAJOR, 1), NULL, "rc", 1);
 #endif
 	class_destroy(vfd_class);
 	sema_init(&write_sem, 1);
@@ -1498,10 +1496,8 @@ static void __exit proton_cleanup_module(void)
 	unregister_chrdev(VFD_MAJOR,DEVICE_NAME);
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,30)
 	device_destroy(vfd_class, MKDEV(VFD_MAJOR, 0));
-	device_destroy(vfd_class, MKDEV(VFD_MAJOR, 1));
 #else
 	class_device_destroy(vfd_class, MKDEV(VFD_MAJOR, 0));
-	class_device_destroy(vfd_class, MKDEV(VFD_MAJOR, 1));
 #endif
 	class_destroy(vfd_class);
 
