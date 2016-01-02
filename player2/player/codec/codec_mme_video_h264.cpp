@@ -1,23 +1,5 @@
 /************************************************************************
-Copyright (C) 2007 STMicroelectronics. All Rights Reserved.
-
-This file is part of the Player2 Library.
-
-Player2 is free software; you can redistribute it and/or modify it under
-the terms of the GNU General Public License version 2 as published by the
-Free Software Foundation.
-
-Player2 is distributed in the hope that it will be useful,
-but WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
-See the GNU General Public License for more details.
-
-You should have received a copy of the GNU General Public License along
-with player2; see the file COPYING.  If not, write to the Free Software
-Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
-
-The Player2 Library may alternatively be licensed under a proprietary
-license from ST.
+COPYRIGHT (C) SGS-THOMSON Microelectronics 2007
 
 Source file name : codec_mme_video_H264.cpp
 Author :           Nick
@@ -914,7 +896,6 @@ H264SequenceParameterSetHeader_t        *SPS;
 
 CodecStatus_t   Codec_MmeVideoH264_c::FillOutDecodeCommand(       void )
 {
-unsigned int			  i,j;
 CodecStatus_t                     Status;
 H264CodecDecodeContext_t         *Context                       = (H264CodecDecodeContext_t *)DecodeContext;
 H264_TransformParam_fmw_t        *Param;
@@ -940,7 +921,7 @@ unsigned int			  MaxAllocatableDecodeBuffers;
     //
 
     if( ParsedFrameParameters->ReferenceFrame && 
-	!BufferState[CurrentDecodeBufferIndex].MacroblockStructurePresent )
+	(BufferState[CurrentDecodeBufferIndex].BufferMacroblockStructurePointer == NULL) )
     {
 	//
 	// Obtain a reference frame slot
@@ -950,7 +931,7 @@ unsigned int			  MaxAllocatableDecodeBuffers;
 	if( Status != CodecNoError )
 	{
 #ifdef __TDT__
-   	      report( severity_error, "Codec_MmeVideoH264_c::FillOutDecodeCommand - Failed to obtain a reference frame slot.\n" );
+            report( severity_error, "\n\nCodec_MmeVideoH264_c::FillOutDecodeCommand - Failed to obtain a reference frame slot.\n\n\n" );
             /* This is necessary to avoid deadlocks caused by lack
                of further reference frame slots. (There is a firmware
                limitation of 16 reference frames.) It is unclear
@@ -1005,19 +986,12 @@ unsigned int			  MaxAllocatableDecodeBuffers;
 	    return Status;
 	}
 
-	BufferState[CurrentDecodeBufferIndex].MacroblockStructurePresent	= true;
-	BufferState[CurrentDecodeBufferIndex].BufferMacroblockStructure		= MacroBlockStructureBuffer;
 	MacroBlockStructureBuffer->ObtainDataReference( NULL, NULL, (void **)&BufferState[CurrentDecodeBufferIndex].BufferMacroblockStructurePointer, PhysicalAddress );
 
-	//
-	// Under error circumstances, it is possible for a buffer to reference itself,
-	// when this happens we need to Increment references to the macroblock structure buffer
-	//
+	// Attach it to the decode buffer, since the decode buffer holds it, we can release our hold.
 
-	for( i=0; i<ParsedFrameParameters->NumberOfReferenceFrameLists; i++ )
-	    for( j=0; j<ParsedFrameParameters->ReferenceFrameList[i].EntryCount; j++ )
-		if( DecodeContext->ReferenceFrameList[i].EntryIndicies[j] == CurrentDecodeBufferIndex )
-		    BufferState[CurrentDecodeBufferIndex].BufferMacroblockStructure->IncrementReferenceCount();
+	BufferState[CurrentDecodeBufferIndex].Buffer->AttachBuffer( MacroBlockStructureBuffer );
+	MacroBlockStructureBuffer->DecrementReferenceCount();
     }
 
     //
@@ -1385,13 +1359,6 @@ H264CodecDecodeContext_t	*H264Context	= (H264CodecDecodeContext_t *)Context;
 	report( severity_info, "H264 decode error %08x\n", H264Context->DecodeStatus.ErrorCode );
 
 #if 0
-{
-unsigned int i;
-    for( i=0; i<IndexBufferMapSize; i++ )
-        if( IndexBufferMap[i].BufferIndex == Context->BufferIndex )
-	    report( severity_info, "\t\tDecodeIndex = %d\n", IndexBufferMap[i].DecodeIndex );
-}
-
 	for(unsigned int i=0; i<H264_STATUS_PARTITION; i++ )
 	for( i=0; i<H264_STATUS_PARTITION; i++ )
 	    report( severity_info, "\t\t %02x %02x %02x %02x %02x %02x\n", 
@@ -1591,8 +1558,7 @@ unsigned int    Index;
     else
     {
 	Status	= TranslateDecodeIndex( ReferenceFrameDecodeIndex, &Index );
-	if( (Status == CodecNoError) && (BufferState[Index].ReferenceFrameCount == 1) && 
-					(BufferState[Index].ReferenceFrameSlot != INVALID_INDEX) )
+	if( (Status == CodecNoError) && (BufferState[Index].ReferenceFrameCount == 1) )
 	    ReferenceFrameSlotUsed[BufferState[Index].ReferenceFrameSlot]	= false;
     }
 
@@ -1707,7 +1673,7 @@ Codec_MmeVideoH264_c    *Codec = (Codec_MmeVideoH264_c *)Parameter;
 
 void Codec_MmeVideoH264_c::IntermediateProcess( void )
 {
-PlayerStatus_t	Status;
+BufferStatus_t	Status;
 h264pp_status_t PPStatus;
 RingStatus_t    RingStatus;
 unsigned int    Entry;
@@ -1715,7 +1681,6 @@ unsigned int    PPEntry;
 unsigned int    PPSize;
 unsigned int    PPStatusMask;
 unsigned char	AllowBadPPFrames;
-bool		PromoteNextStreamParametersToNew;
 
     //
     // Signal we have started
@@ -1727,8 +1692,6 @@ bool		PromoteNextStreamParametersToNew;
     //
     // Main loop
     //
-
-    PromoteNextStreamParametersToNew	= false;
 
     while( !Terminating )
     {
@@ -1811,29 +1774,7 @@ bool		PromoteNextStreamParametersToNew;
 		if( Terminating )
 		    break;
 
-		//
-		// Now mimic the input procedure as done in the player process
-		//
-
-		if( PromoteNextStreamParametersToNew && (FramesInPreprocessorChain[Entry].ParsedFrameParameters->StreamParameterStructure != NULL) )
-		{
-		    FramesInPreprocessorChain[Entry].ParsedFrameParameters->NewStreamParameters	= true;
-		    PromoteNextStreamParametersToNew						= false;
-		}
-
-		Status	= Codec_MmeVideo_c::Input( FramesInPreprocessorChain[Entry].CodedBuffer );
-		if( Status != CodecNoError )
-		{
-		    if( FramesInPreprocessorChain[Entry].ParsedFrameParameters->NewStreamParameters )
-			PromoteNextStreamParametersToNew	= true;
-
-		    if( FramesInPreprocessorChain[Entry].ParsedFrameParameters->FirstParsedParametersForOutputFrame )
-		    {
-			Player->RecordNonDecodedFrame( Stream, FramesInPreprocessorChain[Entry].CodedBuffer, FramesInPreprocessorChain[Entry].ParsedFrameParameters );
-			Codec_MmeVideo_c::OutputPartialDecodeBuffers();
-		    }
-		}
-
+		Codec_MmeVideo_c::Input( FramesInPreprocessorChain[Entry].CodedBuffer );
 		break;
 
 	}

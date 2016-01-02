@@ -512,7 +512,7 @@ void ptiInit ( struct DeviceContext_s *pContext )
   // get new descrambler handle
   pSession->descrambler = pti_hal_get_new_descrambler(pSession->session);
   pSession->descramblers[0] = pSession->descrambler;
-  for(i=1;i<NUMBER_OF_DESCRAMBLERS;i++)
+  for(i=1;i<NUMBER_OF_DESCRAMBLERS - 1;i++)
   	pSession->descramblers[i] = pti_hal_get_new_descrambler(pSession->session);
 
   printk("Descrambler Handler = %d\n", pSession->descrambler);
