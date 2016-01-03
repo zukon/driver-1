@@ -30,7 +30,7 @@ def bytes2bmp(byte):
 	for i in range(5):
 		b = reverse(byte[i])
 		d |= b << (4 - i)*8
-	
+
 	s = ''
 	for y in range(7):
 		for x in range(5):
