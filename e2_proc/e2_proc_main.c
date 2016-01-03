@@ -137,6 +137,8 @@
  *  ---------- info
  *  |           |
  *  |           --------- model <- Version String of out Box
+ *  |           --------- chipset <- Version String of chipset
+ *  |
  *  |
  *  ---------- tsmux
  *  |           |
@@ -188,7 +190,7 @@
  *  |
  *  ---------- fb
  *  |           |
- *  |           --------- 3dmode   
+ *  |           --------- 3dmode
  *  |           |
  *  |           --------- znorm
  *  |           |
@@ -209,10 +211,8 @@
 #include <linux/string.h>
 #include <linux/module.h>
 
-typedef int (*proc_read_t) (char *page, char **start, off_t off, int count,
-		  int *eof, void *data_unused);
-typedef int (*proc_write_t) (struct file *file, const char __user *buf,
-		   unsigned long count, void *data);
+typedef int (*proc_read_t) (char *page, char **start, off_t off, int count, int *eof, void *data_unused);
+typedef int (*proc_write_t) (struct file *file, const char __user *buf, unsigned long count, void *data);
 
 #define cProcDir	1
 #define cProcEntry	2
@@ -228,8 +228,7 @@ struct ProcStructure_s
 	void* identifier; /* needed for cpp stuff */
 };
 
-static int get_player_version(char *page, char **start, off_t off, int count,
-                           int *eof, void *data)
+static int get_player_version(char *page, char **start, off_t off, int count, int *eof, void *data)
 {
 #if defined(PLAYER_191)
   int len = sprintf(page, "player191\n");
@@ -239,8 +238,7 @@ static int get_player_version(char *page, char **start, off_t off, int count,
   return len;
 }
 
-static int info_model_read(char *page, char **start, off_t off, int count,
-                           int *eof, void *data)
+static int info_model_read(char *page, char **start, off_t off, int count, int *eof, void *data)
 {
 #if defined(SPARK)
   int len = sprintf(page, "spark\n");
@@ -253,23 +251,38 @@ static int info_model_read(char *page, char **start, off_t off, int count,
   return len;
 }
 
+static int info_chipset_read(char *page, char **start, off_t off, int count, int *eof, void *data)
+{
+#if defined(HL101)
+	int len = sprintf(page, "STi7109\n");
+#elif defined(SPARK)
+	int len = sprintf(page, "STi7111\n");
+#elif defined(SPARK7162)
+	int len = sprintf(page, "STi7162\n");
+#else
+	int len = sprintf(page, "unknown\n");
+#endif
+	return len;
+}
+
 static char* three_d_mode = NULL;
 
-static int three_d_mode_read(char *page, char **start, off_t off, int count,
-                           int *eof, void *data)
+static int three_d_mode_read(char *page, char **start, off_t off, int count, int *eof, void *data)
 {
   int len = 0;
-  if(three_d_mode == NULL){
+  if(three_d_mode == NULL)
+  {
      len = sprintf(page, "off\n");
-  }else{
+  }
+  else
+  {
      len = sprintf(page, three_d_mode);
   }
 
   return len;
 }
 
-static int three_d_mode_write(struct file *file, const char __user *buf,
-                           unsigned long count, void *data)
+static int three_d_mode_write(struct file *file, const char __user *buf, unsigned long count, void *data)
 {
 	char 		*page;
 	ssize_t 	ret = -ENOMEM;
@@ -318,8 +331,7 @@ out:
 
 static char* wakeup_time = NULL;
 
-static int wakeup_time_read(char *page, char **start, off_t off, int count,
-                           int *eof, void *data)
+static int wakeup_time_read(char *page, char **start, off_t off, int count, int *eof, void *data)
 {
   int len = 0;
   if (wakeup_time == NULL)
@@ -330,8 +342,7 @@ static int wakeup_time_read(char *page, char **start, off_t off, int count,
   return len;
 }
 
-static int wakeup_time_write(struct file *file, const char __user *buf,
-                           unsigned long count, void *data)
+static int wakeup_time_write(struct file *file, const char __user *buf, unsigned long count, void *data)
 {
 	char 		*page;
 	ssize_t 	ret = -ENOMEM;
@@ -367,8 +378,7 @@ out:
 
 int _12v_isON=0;
 
-int proc_misc_12V_output_write(struct file *file, const char __user *buf,
-                           unsigned long count, void *data)
+int proc_misc_12V_output_write(struct file *file, const char __user *buf, unsigned long count, void *data)
 {
 	char 		*page;
 	ssize_t 	ret = -ENOMEM;
@@ -409,8 +419,7 @@ out:
 
 EXPORT_SYMBOL(_12v_isON);
 
-int proc_misc_12V_output_read (char *page, char **start, off_t off, int count,
-			  int *eof, void *data_unused)
+int proc_misc_12V_output_read (char *page, char **start, off_t off, int count, int *eof, void *data_unused)
 {
 	int len = 0;
 	printk("%s %d\n", __FUNCTION__, count);
@@ -423,16 +432,14 @@ int proc_misc_12V_output_read (char *page, char **start, off_t off, int count,
     return len;
 }
 
-static int zero_read(char *page, char **start, off_t off, int count,
-                           int *eof, void *data)
+static int zero_read(char *page, char **start, off_t off, int count, int *eof, void *data)
 {
   int len = sprintf(page, "0");
 
   return len;
 }
 
-static int default_write_proc(struct file *file, const char __user *buf,
-                            unsigned long count, void *data)
+static int default_write_proc(struct file *file, const char __user *buf, unsigned long count, void *data)
 {
   return count;
 }
@@ -452,6 +459,7 @@ struct ProcStructure_s e2Proc[] =
 
 	{cProcDir  , "stb/info"                                                         , NULL, NULL, NULL, NULL, ""},
 	{cProcEntry, "stb/info/model"                                                   , NULL, info_model_read, NULL, NULL, ""},
+	{cProcEntry, "stb/info/chipset"                                                 , NULL, info_chipset_read, NULL, NULL, ""},
 	{cProcEntry, "stb/info/boxtype"                                                 , NULL, info_model_read, NULL, NULL, ""},
 
 	{cProcDir  , "stb/video"                                                        , NULL, NULL, NULL, NULL, ""},
@@ -589,8 +597,7 @@ struct ProcStructure_s e2Proc[] =
 	{cProcEntry, "stb/player/version"              , NULL, get_player_version, NULL, NULL, ""},
 };
 
-static int cpp_read_proc(char *page, char **start, off_t off, int count,
-                           int *eof, void *data)
+static int cpp_read_proc(char *page, char **start, off_t off, int count, int *eof, void *data)
 {
   int i;
 
@@ -607,15 +614,14 @@ static int cpp_read_proc(char *page, char **start, off_t off, int count,
   return 0;
 }
 
-/* we need this functions because the cpp modules cannot inlcude
- * the linux kernel headers and therefor we miss some functions
+/* we need this function because the cpp modules cannot include
+ * the linux kernel headers and therefore we miss some functions
  * (e.g. copy_from_user)
- * so we make here the dirty stuff and then call the c-function
+ * so here we make the dirty stuff and then call the c-function
  * in the cpp module which can cast the instance and call the
  * real method ;-)
  */
-static int cpp_write_proc(struct file *file, const char __user *buf,
-                            unsigned long count, void *data)
+static int cpp_write_proc(struct file *file, const char __user *buf, unsigned long count, void *data)
 {
   int 		i;
   char 		*page;
@@ -717,8 +723,7 @@ int install_e2_procs(char *path, read_proc_t *read_func, write_proc_t *write_fun
       else
       {
         /* check whther the default entry is installed */
-	if((e2Proc[i].entry->read_proc != e2Proc[i].read_proc) ||
-           (e2Proc[i].entry->write_proc != e2Proc[i].write_proc))
+	if((e2Proc[i].entry->read_proc != e2Proc[i].read_proc) || (e2Proc[i].entry->write_proc != e2Proc[i].write_proc))
 	{
 	  printk("%s(): entry already in use '%s'\n", __func__, path);
 	}
@@ -754,8 +759,7 @@ printk("%s: %s\n", __func__, path);
   /* find the entry */
   for(i = 0; i < sizeof(e2Proc) / sizeof(e2Proc[0]); i++)
   {
-    if((e2Proc[i].type == cProcEntry) &&
-       (strcmp(path, e2Proc[i].name) == 0))
+    if((e2Proc[i].type == cProcEntry) && (strcmp(path, e2Proc[i].name) == 0))
     {
       if(e2Proc[i].entry == NULL)
       {
@@ -798,8 +802,7 @@ int remove_e2_procs(char *path, read_proc_t *read_func, write_proc_t *write_func
   /* find the entry */
   for(i = 0; i < sizeof(e2Proc) / sizeof(e2Proc[0]); i++)
   {
-    if((e2Proc[i].type == cProcEntry) &&
-       (strcmp(path, e2Proc[i].name) == 0))
+    if((e2Proc[i].type == cProcEntry) && (strcmp(path, e2Proc[i].name) == 0))
     {
       if(e2Proc[i].entry == NULL)
       {
@@ -811,14 +814,12 @@ int remove_e2_procs(char *path, read_proc_t *read_func, write_proc_t *write_func
 	if(e2Proc[i].entry->read_proc == read_func)
 	  e2Proc[i].entry->read_proc = e2Proc[i].read_proc;
         else
-	  printk("%s(): different read_procs '%s' (%p, %p)\n",
-                 __func__, path, e2Proc[i].entry->read_proc, read_func);
+	  printk("%s(): different read_procs '%s' (%p, %p)\n",  __func__, path, e2Proc[i].entry->read_proc, read_func);
 
 	if(e2Proc[i].entry->write_proc == write_func)
 	  e2Proc[i].entry->write_proc = e2Proc[i].write_proc;
         else
-	  printk("%s(): different write_procs '%s' (%p, %p)\n",
-                 __func__, path, e2Proc[i].entry->write_proc, write_func);
+	  printk("%s(): different write_procs '%s' (%p, %p)\n",  __func__, path, e2Proc[i].entry->write_proc, write_func);
       }
       break;
     }
@@ -855,18 +856,15 @@ int cpp_remove_e2_procs(const char *path, read_proc_t *read_func, write_proc_t *
         if(e2Proc[i].read_proc == read_func)
         {
           e2Proc[i].read_proc = NULL;
-          printk("%s(): removed '%s, %s' (%p, %p)\n",
-                 __func__, path, e2Proc[i].name, e2Proc[i].read_proc, read_func);
+          printk("%s(): removed '%s, %s' (%p, %p)\n", __func__, path, e2Proc[i].name, e2Proc[i].read_proc, read_func);
         }
         else
-          printk("%s(): different read_procs '%s, %s' (%p, %p)\n",
-                 __func__, path, e2Proc[i].name, e2Proc[i].read_proc, read_func);
+          printk("%s(): different read_procs '%s, %s' (%p, %p)\n", __func__, path, e2Proc[i].name, e2Proc[i].read_proc, read_func);
 
         if(e2Proc[i].write_proc == write_func)
           e2Proc[i].write_proc = NULL;
         else
-          printk("%s(): different write_procs '%s' (%p, %p)\n",
-                 __func__, path, e2Proc[i].write_proc, write_func);
+          printk("%s(): different write_procs '%s' (%p, %p)\n", __func__, path, e2Proc[i].write_proc, write_func);
       }
       break;
     }
